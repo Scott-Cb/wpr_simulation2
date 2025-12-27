@@ -36,12 +36,25 @@ def generate_launch_description():
         'worlds',
         'table.world'
     )
+    
+ 
+    
+    # 新增：定义降低物理更新频率的参数
+    extra_gazebo_args = [
+        '--ros-args',
+        '-p', 'physics/realtime_update_rate:=200',  # 物理更新频率（默认1000Hz→200Hz）
+        '-p', 'physics/max_step_size:=0.005'       # 单步计算时间（对应200Hz）
+    ]
 
     gzserver_cmd = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_gazebo_ros, 'launch', 'gzserver.launch.py')
         ),
-        launch_arguments={'world': world}.items()
+        # 修改：添加extra_gazebo_args参数
+        launch_arguments={
+            'world': world,
+            'extra_gazebo_args': ' '.join(extra_gazebo_args)
+        }.items()
     )
 
     gzclient_cmd = IncludeLaunchDescription(

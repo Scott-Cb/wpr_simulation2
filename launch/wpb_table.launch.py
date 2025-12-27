@@ -19,7 +19,7 @@
 import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument
+from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument, ExecuteProcess, TimerAction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch.conditions import IfCondition
@@ -31,7 +31,6 @@ def generate_launch_description():
     pkg_gazebo_ros = get_package_share_directory('gazebo_ros')
 
     use_sim_time = LaunchConfiguration('use_sim_time', default='true')
-    rviz_arg = DeclareLaunchArgument('rviz', default_value='false', description='Whether to launch RViz')
 
     world = os.path.join(
         get_package_share_directory('wpr_simulation2'),
@@ -41,6 +40,12 @@ def generate_launch_description():
     
  
     
+    # kill any leftover gazebo servers/clients to avoid address-in-use errors
+    kill_gz_cmd = ExecuteProcess(
+        cmd=['bash', '-lc', 'pkill -f gzserver || true; pkill -f gzclient || true'],
+        shell=False
+    )
+
     gzserver_cmd = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_gazebo_ros, 'launch', 'gzserver.launch.py')
@@ -63,18 +68,19 @@ def generate_launch_description():
     #     launch_arguments={'use_sim_time': use_sim_time}.items()
     # )
 
-    spawn_robot_cmd = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(launch_file_dir, 'spawn_wpb_mani.launch.py')
+    # spawn robot directly from model file to avoid robot_description/controller timing issues
+    spawn_robot_cmd = Node(
+            package='gazebo_ros',
+            namespace='',
+            executable='spawn_entity.py',
+            name='spawn_entity_robot',
+            arguments=['-file', [os.path.join(get_package_share_directory('wpr_simulation2'), 'models', 'wpb_home_mani.model')],
+                       '-entity', 'wpb_home_mani',
+                       '-x', '0.0',
+                       '-y', '0.0',
+                       '-z', '0.0',
+                       '-Y', '0.0']
         )
-    )
-    # disable controllers to avoid controller_manager timing/load issues during RViz testing
-    spawn_robot_cmd = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(launch_file_dir, 'spawn_wpb_mani.launch.py')
-        ),
-        launch_arguments={'load_controllers': 'false'}.items()
-    )
 
     spawn_table = Node(
             package='gazebo_ros',
@@ -114,24 +120,22 @@ def generate_launch_description():
             '-Y', '0.0']
         )
 
-    rviz_cmd = Node(
-            package='rviz2',
-            executable='rviz2',
-            name='rviz2',
-            arguments=['-d', [os.path.join(get_package_share_directory('wpr_simulation2'), 'rviz', 'camera.rviz')]],
-            condition=IfCondition(LaunchConfiguration('rviz'))
-        )
 
     ld = LaunchDescription()
-    ld.add_action(rviz_arg)
 
     # Add the commands to the launch description
-    ld.add_action(gzserver_cmd)
-    ld.add_action(gzclient_cmd)
+    ld.add_action(kill_gz_cmd)
+
+    # delay starting gzserver/gzclient slightly so the kill command finishes
+    gz_launch_group = TimerAction(
+        period=1.0,
+        actions=[gzserver_cmd, gzclient_cmd]
+    )
+    ld.add_action(gz_launch_group)
     ld.add_action(spawn_robot_cmd)
     ld.add_action(spawn_table)
     ld.add_action(spawn_red_bottle)
     ld.add_action(spawn_green_bottle)
-    ld.add_action(rviz_cmd)
+    # RViz launch removed per user request
 
     return ld

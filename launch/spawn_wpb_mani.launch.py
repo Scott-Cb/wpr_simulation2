@@ -17,7 +17,6 @@
 # Authors: Zhang Wanjie
 
 import os
-import xacro
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.event_handlers import OnProcessExit
@@ -28,29 +27,12 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
-    # Get the urdf file
-    urdf_path = os.path.join(
+    # Use the SDF model file directly for spawning in Gazebo
+    model_path = os.path.join(
         get_package_share_directory('wpr_simulation2'),
         'models',
         'wpb_home_mani.model'
     )
-
-    # Process the URDF file
-    with open(urdf_path, 'r') as infp:
-        robot_desc = infp.read()
-        doc = xacro.parse(robot_desc)
-        xacro.process_doc(doc)
-        robot_description = doc.toxml()
-    
-    robot_state_publisher_cmd = Node(
-            package='robot_state_publisher',
-            executable='robot_state_publisher',
-            name='robot_state_publisher',
-            output='screen',
-            parameters=[{
-                'robot_description': robot_description
-            }],
-        )
     
 
     # Launch configuration variables specific to simulation
@@ -58,14 +40,14 @@ def generate_launch_description():
     pose_y = LaunchConfiguration('pose_y', default='0.0')
     pose_theta = LaunchConfiguration('pose_theta', default='0.0')
 
-    # Declare the launch arguments
+    # Declare the launch arguments (names match LaunchConfiguration above)
     declare_x_position_cmd = DeclareLaunchArgument(
-        'x_pose', default_value='0.0',
-        description='Specify namespace of the robot')
+        'pose_x', default_value='0.0',
+        description='Specify x position of the robot')
 
     declare_y_position_cmd = DeclareLaunchArgument(
-        'y_pose', default_value='0.0',
-        description='Specify namespace of the robot')
+        'pose_y', default_value='0.0',
+        description='Specify y position of the robot')
 
     declare_load_controllers = DeclareLaunchArgument(
         'load_controllers', default_value='true',
@@ -75,8 +57,8 @@ def generate_launch_description():
         package='gazebo_ros',
         executable='spawn_entity.py',
         arguments=[
-            '-topic', 'robot_description',
-            '-entity', "wpb_home_mani",
+            '-file', model_path,
+            '-entity', 'wpb_home_mani',
             '-x', pose_x,
             '-y', pose_y,
             '-Y', pose_theta
@@ -130,6 +112,5 @@ def generate_launch_description():
         ),
         # control_node,
         # joint_state_publisher_node,
-        robot_state_publisher_cmd,
         start_gazebo_ros_spawner_cmd,
     ])

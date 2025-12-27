@@ -120,16 +120,19 @@ private:
     pcl::PointIndices::Ptr planeIndices(new pcl::PointIndices);
     segmentation.segment(*planeIndices, *coefficients);
 
-    // 统计平面点集的平均高度
-    int point_num = planeIndices->indices.size();
-    float points_z_sum = 0;
-    for (int i = 0; i < point_num; i++)
-    {
-      int point_index = planeIndices->indices[i];
-      points_z_sum += cloud_src.points[point_index].z;
-    }
-    float plane_height = points_z_sum / point_num;
-    RCLCPP_INFO(this->get_logger(), "plane_height = %.2f", plane_height);
+        // 统计平面点集的平均高度
+        int point_num = planeIndices->indices.size();
+        if (point_num == 0) {
+            RCLCPP_WARN(this->get_logger(), "No plane points found, skipping pointcloud processing");
+            return;
+        }
+        float points_z_sum = 0;
+        for (int i = 0; i < point_num; i++) {
+            int point_index = planeIndices->indices[i];
+            points_z_sum += cloud_src.points[point_index].z;
+        }
+        float plane_height = points_z_sum / point_num;
+        RCLCPP_INFO(this->get_logger(), "plane_height = %.2f", plane_height);
 
     // 对点云再次进行截取，只保留平面以上的部分
     pass.setInputCloud(cloud_src.makeShared());

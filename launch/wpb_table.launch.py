@@ -75,6 +75,13 @@ def generate_launch_description():
             os.path.join(launch_file_dir, 'spawn_wpb_mani.launch.py')
         )
     )
+    # disable controllers to avoid controller_manager timing/load issues during RViz testing
+    spawn_robot_cmd = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(launch_file_dir, 'spawn_wpb_mani.launch.py')
+        ),
+        launch_arguments={'load_controllers': 'false'}.items()
+    )
 
     spawn_table = Node(
             package='gazebo_ros',
@@ -118,7 +125,7 @@ def generate_launch_description():
             package='rviz2',
             executable='rviz2',
             name='rviz2',
-            arguments=['-d', [os.path.join(get_package_share_directory('wpr_simulation2'), 'rviz', 'pointcloud.rviz')]]
+            arguments=['-d', [os.path.join(get_package_share_directory('wpr_simulation2'), 'rviz', 'camera.rviz')]]
         )
 
     ld = LaunchDescription()
@@ -130,6 +137,6 @@ def generate_launch_description():
     ld.add_action(spawn_table)
     ld.add_action(spawn_red_bottle)
     ld.add_action(spawn_green_bottle)
-    # ld.add_action(rviz_cmd)
+    ld.add_action(rviz_cmd)
 
     return ld

@@ -23,6 +23,7 @@ from launch import LaunchDescription
 from launch.event_handlers import OnProcessExit
 from launch.actions import ExecuteProcess, IncludeLaunchDescription, RegisterEventHandler, DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
+from launch.conditions import IfCondition
 from launch_ros.actions import Node
 
 
@@ -66,6 +67,10 @@ def generate_launch_description():
         'y_pose', default_value='0.0',
         description='Specify namespace of the robot')
 
+    declare_load_controllers = DeclareLaunchArgument(
+        'load_controllers', default_value='true',
+        description='Whether to load ros2_control controllers')
+
     start_gazebo_ros_spawner_cmd = Node(
         package='gazebo_ros',
         executable='spawn_entity.py',
@@ -101,19 +106,23 @@ def generate_launch_description():
     return LaunchDescription([
         declare_x_position_cmd,
         declare_y_position_cmd,
+        declare_load_controllers,
         RegisterEventHandler(
+            condition=IfCondition(LaunchConfiguration('load_controllers')),
             event_handler=OnProcessExit(
                 target_action=start_gazebo_ros_spawner_cmd,
                 on_exit=[load_joint_state_controller],
             )
         ),
         RegisterEventHandler(
+            condition=IfCondition(LaunchConfiguration('load_controllers')),
             event_handler=OnProcessExit(
                 target_action=load_joint_state_controller,
                 on_exit=[load_manipulator_controller],
             )
         ),
         RegisterEventHandler(
+            condition=IfCondition(LaunchConfiguration('load_controllers')),
             event_handler=OnProcessExit(
                 target_action=load_manipulator_controller,
                 on_exit=[wpb_home_mani_sim],
